@@ -29,23 +29,19 @@ import static org.geysermc.floodgate.util.Constants.GET_BEDROCK_LINK;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.inject.Inject;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.Getter;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.geysermc.floodgate.api.link.LinkRequestResult;
 import org.geysermc.floodgate.api.link.PlayerLink;
-import org.geysermc.floodgate.util.HttpClient;
-import org.geysermc.floodgate.util.HttpClient.DefaultHttpResponse;
+import org.geysermc.floodgate.util.HttpUtils;
+import org.geysermc.floodgate.util.HttpUtils.DefaultHttpResponse;
 import org.geysermc.floodgate.util.LinkedPlayer;
 import org.geysermc.floodgate.util.Utils;
 
 @Getter
 public class GlobalPlayerLinking extends CommonPlayerLink {
-    @Inject
-    private HttpClient httpClient;
-
     private PlayerLink databaseImpl;
 
     public void setDatabaseImpl(PlayerLink databaseImpl) {
@@ -98,7 +94,7 @@ public class GlobalPlayerLinking extends CommonPlayerLink {
         return CompletableFuture.supplyAsync(
                 () -> {
                     DefaultHttpResponse response =
-                            httpClient.get(GET_BEDROCK_LINK + bedrockId.getLeastSignificantBits());
+                            HttpUtils.get(GET_BEDROCK_LINK + bedrockId.getLeastSignificantBits());
 
                     // either the global api is down or it failed to return link
                     if (!response.isCodeOk()) {
@@ -148,7 +144,7 @@ public class GlobalPlayerLinking extends CommonPlayerLink {
         return CompletableFuture.supplyAsync(
                 () -> {
                     DefaultHttpResponse response =
-                            httpClient.get(GET_BEDROCK_LINK + bedrockId.getLeastSignificantBits());
+                            HttpUtils.get(GET_BEDROCK_LINK + bedrockId.getLeastSignificantBits());
 
                     if (!response.isCodeOk()) {
                         getLogger().error(

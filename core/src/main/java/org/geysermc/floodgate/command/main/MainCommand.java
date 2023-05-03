@@ -33,18 +33,13 @@ import cloud.commandframework.Command.Builder;
 import cloud.commandframework.CommandManager;
 import cloud.commandframework.context.CommandContext;
 import java.util.Locale;
+import java.util.function.Consumer;
+import lombok.RequiredArgsConstructor;
 import org.geysermc.floodgate.command.util.Permission;
 import org.geysermc.floodgate.platform.command.FloodgateCommand;
-import org.geysermc.floodgate.platform.command.FloodgateSubCommand;
-import org.geysermc.floodgate.platform.command.SubCommands;
 import org.geysermc.floodgate.player.UserAudience;
 
-public final class MainCommand extends SubCommands implements FloodgateCommand {
-    public MainCommand() {
-        defineSubCommand(FirewallCheckSubcommand.class);
-        defineSubCommand(VersionSubcommand.class);
-    }
-
+public final class MainCommand implements FloodgateCommand {
     @Override
     public Command<UserAudience> buildCommand(CommandManager<UserAudience> commandManager) {
         Builder<UserAudience> builder = commandManager.commandBuilder(
@@ -54,11 +49,11 @@ public final class MainCommand extends SubCommands implements FloodgateCommand {
                 .permission(Permission.COMMAND_MAIN.get())
                 .handler(this::execute);
 
-        for (FloodgateSubCommand subCommand : subCommands()) {
+        for (SubCommand subCommand : SubCommand.VALUES) {
             commandManager.command(builder
-                    .literal(subCommand.name().toLowerCase(Locale.ROOT), subCommand.description())
-                    .permission(subCommand.permission().get())
-                    .handler(subCommand::execute)
+                    .literal(subCommand.name().toLowerCase(Locale.ROOT), subCommand.description)
+                    .permission(subCommand.permission.get())
+                    .handler(subCommand.executor::accept)
             );
         }
 
@@ -70,15 +65,27 @@ public final class MainCommand extends SubCommands implements FloodgateCommand {
     public void execute(CommandContext<UserAudience> context) {
         StringBuilder helpMessage = new StringBuilder("Available subcommands are:\n");
 
-        for (FloodgateSubCommand subCommand : subCommands()) {
-            if (context.getSender().hasPermission(subCommand.permission().get())) {
+        for (SubCommand subCommand : SubCommand.VALUES) {
+            if (context.getSender().hasPermission(subCommand.permission.get())) {
                 helpMessage.append('\n').append(COLOR_CHAR).append('b')
                         .append(subCommand.name().toLowerCase(Locale.ROOT))
                         .append(COLOR_CHAR).append("f - ").append(COLOR_CHAR).append('7')
-                        .append(subCommand.description());
+                        .append(subCommand.description);
             }
         }
 
         context.getSender().sendMessage(helpMessage.toString());
+    }
+
+    @RequiredArgsConstructor
+    enum SubCommand {
+        FIREWALL("Check if your outgoing firewall allows Floodgate to work properly",
+                Permission.COMMAND_MAIN_FIREWALL, FirewallCheckSubcommand::executeFirewall);
+
+        static final SubCommand[] VALUES = values();
+
+        final String description;
+        final Permission permission;
+        final Consumer<CommandContext<UserAudience>> executor;
     }
 }

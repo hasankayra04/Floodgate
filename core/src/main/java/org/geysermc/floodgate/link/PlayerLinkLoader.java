@@ -32,7 +32,6 @@ import com.google.gson.JsonObject;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Singleton;
-import com.google.inject.name.Named;
 import com.google.inject.name.Names;
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,23 +42,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import org.checkerframework.checker.nullness.qual.NonNull;
-import org.geysermc.event.Listener;
-import org.geysermc.event.subscribe.Subscribe;
+import javax.annotation.Nonnull;
+import javax.inject.Named;
 import org.geysermc.floodgate.api.link.PlayerLink;
 import org.geysermc.floodgate.api.logger.FloodgateLogger;
 import org.geysermc.floodgate.config.FloodgateConfig;
-import org.geysermc.floodgate.config.FloodgateConfig.PlayerLinkConfig;
-import org.geysermc.floodgate.event.lifecycle.ShutdownEvent;
 import org.geysermc.floodgate.util.Constants;
 import org.geysermc.floodgate.util.InjectorHolder;
 import org.geysermc.floodgate.util.Utils;
 
-@Listener
 @Singleton
 @SuppressWarnings("unchecked")
-public final class PlayerLinkHolder {
+public final class PlayerLinkLoader {
     @Inject private Injector injector;
     @Inject private FloodgateConfig config;
     @Inject private FloodgateLogger logger;
@@ -68,38 +62,30 @@ public final class PlayerLinkHolder {
     @Named("dataDirectory")
     private Path dataDirectory;
 
-    private URLClassLoader classLoader;
-    private PlayerLink instance;
-
-    @NonNull
+    @Nonnull
     public PlayerLink load() {
-        if (instance != null) {
-            return instance;
-        }
-
         if (config == null) {
             throw new IllegalStateException("Config cannot be null!");
         }
 
-        PlayerLinkConfig linkConfig = config.getPlayerLink();
-        if (!linkConfig.isEnabled()) {
+        FloodgateConfig.PlayerLinkConfig lConfig = config.getPlayerLink();
+        if (!lConfig.isEnabled()) {
             return new DisabledPlayerLink();
         }
 
         List<Path> files;
-        try (Stream<Path> list = Files.list(dataDirectory)) {
-            files = list
-                    .filter(path -> Files.isRegularFile(path) && path.toString().endsWith(".jar"))
+        try {
+            files = Files.list(dataDirectory)
+                    .filter(path -> Files.isRegularFile(path) && path.toString().endsWith("jar"))
                     .collect(Collectors.toList());
         } catch (IOException exception) {
             logger.error("Failed to list possible database implementations", exception);
             return new DisabledPlayerLink();
         }
 
-        // we can skip the rest if global linking is enabled and no database implementations has
-        // been found, or when global linking is enabled and own player linking is disabled.
-        if (linkConfig.isEnableGlobalLinking() &&
-                (files.isEmpty() || !linkConfig.isEnableOwnLinking())) {
+        // we can skip the rest if global linking is enabled and no database implementations has been
+        // found, or when global linking is enabled and own player linking is disabled.
+        if (lConfig.isEnableGlobalLinking() && (files.isEmpty() || !lConfig.isEnableOwnLinking())) {
             return injector.getInstance(GlobalPlayerLinking.class);
         }
 
@@ -114,7 +100,7 @@ public final class PlayerLinkHolder {
         // We only want to load one database implementation
         if (files.size() > 1) {
             boolean found = false;
-            databaseName = linkConfig.getType();
+            databaseName = lConfig.getType();
 
             String expectedName = "floodgate-" + databaseName + "-database.jar";
             for (Path path : files) {
@@ -125,18 +111,14 @@ public final class PlayerLinkHolder {
             }
 
             if (!found) {
-                logger.error(
-                        "Failed to find an implementation for type: {}", linkConfig.getType()
-                );
+                logger.error("Failed to find an implementation for type: {}", lConfig.getType());
                 return new DisabledPlayerLink();
             }
         } else {
             String name = implementationPath.getFileName().toString();
             if (!Utils.isValidDatabaseName(name)) {
-                logger.error(
-                        "Found database {} but the name doesn't match {}",
-                        name, Constants.DATABASE_NAME_FORMAT
-                );
+                logger.error("Found database {} but the name doesn't match {}",
+                        name, Constants.DATABASE_NAME_FORMAT);
                 return new DisabledPlayerLink();
             }
             int firstSplit = name.indexOf('-') + 1;
@@ -151,22 +133,24 @@ public final class PlayerLinkHolder {
             // we don't have a way to close this properly since we have no stop method and we have
             // to be able to load classes on the fly, but that doesn't matter anyway since Floodgate
             // doesn't support reloading
-            classLoader = new URLClassLoader(
+            URLClassLoader classLoader = new URLClassLoader(
                     new URL[]{pluginUrl},
-                    PlayerLinkHolder.class.getClassLoader()
+                    PlayerLinkLoader.class.getClassLoader()
             );
 
             String mainClassName;
-            JsonObject dbInitConfig;
+            JsonObject linkConfig;
 
-            try (InputStream linkConfigStream = classLoader.getResourceAsStream("init.json")) {
+            try (InputStream linkConfigStream =
+                         classLoader.getResourceAsStream("init.json")) {
+
                 requireNonNull(linkConfigStream, "Implementation should have an init file");
 
-                dbInitConfig = new Gson().fromJson(
+                linkConfig = new Gson().fromJson(
                         new InputStreamReader(linkConfigStream), JsonObject.class
                 );
 
-                mainClassName = dbInitConfig.get("mainClass").getAsString();
+                mainClassName = linkConfig.get("mainClass").getAsString();
             }
 
             Class<? extends PlayerLink> mainClass =
@@ -183,16 +167,16 @@ public final class PlayerLinkHolder {
                         Names.named("databaseClassLoader")).toInstance(classLoader);
                 binder.bind(JsonObject.class)
                         .annotatedWith(Names.named("databaseInitData"))
-                        .toInstance(dbInitConfig);
+                        .toInstance(linkConfig);
                 binder.bind(InjectorHolder.class)
                         .toInstance(injectorHolder);
             });
             injectorHolder.set(linkInjector);
 
-            instance = linkInjector.getInstance(mainClass);
+            PlayerLink instance = linkInjector.getInstance(mainClass);
 
             // we use our own internal PlayerLinking when global linking is enabled
-            if (linkConfig.isEnableGlobalLinking()) {
+            if (lConfig.isEnableGlobalLinking()) {
                 GlobalPlayerLinking linking = linkInjector.getInstance(GlobalPlayerLinking.class);
                 linking.setDatabaseImpl(instance);
                 linking.load();
@@ -202,10 +186,8 @@ public final class PlayerLinkHolder {
                 return instance;
             }
         } catch (ClassCastException exception) {
-            logger.error(
-                    "The database implementation ({}) doesn't extend the PlayerLink class!",
-                    implementationPath.getFileName().toString(), exception
-            );
+            logger.error("The database implementation ({}) doesn't extend the PlayerLink class!",
+                    implementationPath.getFileName().toString(), exception);
             return new DisabledPlayerLink();
         } catch (Exception exception) {
             if (init) {
@@ -215,11 +197,5 @@ public final class PlayerLinkHolder {
             }
             return new DisabledPlayerLink();
         }
-    }
-
-    @Subscribe
-    public void onShutdown(ShutdownEvent ignored) throws Exception {
-        instance.stop();
-        classLoader.close();
     }
 }

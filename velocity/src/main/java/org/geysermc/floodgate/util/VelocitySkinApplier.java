@@ -25,60 +25,25 @@
 
 package org.geysermc.floodgate.util;
 
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.util.GameProfile.Property;
 import java.util.ArrayList;
 import java.util.List;
-import org.checkerframework.checker.nullness.qual.NonNull;
-import org.geysermc.floodgate.api.event.skin.SkinApplyEvent;
-import org.geysermc.floodgate.api.event.skin.SkinApplyEvent.SkinData;
+import lombok.RequiredArgsConstructor;
 import org.geysermc.floodgate.api.player.FloodgatePlayer;
-import org.geysermc.floodgate.event.EventBus;
-import org.geysermc.floodgate.event.skin.SkinApplyEventImpl;
 import org.geysermc.floodgate.skin.SkinApplier;
-import org.geysermc.floodgate.skin.SkinDataImpl;
+import org.geysermc.floodgate.skin.SkinData;
 
-@Singleton
+@RequiredArgsConstructor
 public class VelocitySkinApplier implements SkinApplier {
-    @Inject private ProxyServer server;
-    @Inject private EventBus eventBus;
+    private final ProxyServer server;
 
     @Override
-    public void applySkin(@NonNull FloodgatePlayer floodgatePlayer, @NonNull SkinData skinData) {
+    public void applySkin(FloodgatePlayer floodgatePlayer, SkinData skinData) {
         server.getPlayer(floodgatePlayer.getCorrectUniqueId()).ifPresent(player -> {
             List<Property> properties = new ArrayList<>(player.getGameProfileProperties());
-
-            SkinData currentSkin = currentSkin(properties);
-
-            SkinApplyEvent event = new SkinApplyEventImpl(floodgatePlayer, currentSkin, skinData);
-            event.setCancelled(floodgatePlayer.isLinked());
-
-            eventBus.fire(event);
-
-            if (event.isCancelled()) {
-                return;
-            }
-
-            replaceSkin(properties, event.newSkin());
+            properties.add(new Property("textures", skinData.getValue(), skinData.getSignature()));
             player.setGameProfileProperties(properties);
         });
-    }
-
-    private SkinData currentSkin(List<Property> properties) {
-        for (Property property : properties) {
-            if (property.getName().equals("textures")) {
-                if (!property.getValue().isEmpty()) {
-                    return new SkinDataImpl(property.getValue(), property.getSignature());
-                }
-            }
-        }
-        return null;
-    }
-
-    private void replaceSkin(List<Property> properties, SkinData skinData) {
-        properties.removeIf(property -> property.getName().equals("textures"));
-        properties.add(new Property("textures", skinData.value(), skinData.signature()));
     }
 }

@@ -29,8 +29,6 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.google.inject.name.Named;
-import com.google.inject.name.Names;
-import java.util.logging.Logger;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -61,18 +59,19 @@ public final class SpigotPlatformModule extends AbstractModule {
 
     @Override
     protected void configure() {
-        bind(SpigotPlugin.class).toInstance(plugin);
         bind(PlatformUtils.class).to(SpigotPlatformUtils.class);
-        bind(CommonPlatformInjector.class).to(SpigotInjector.class);
-        bind(Logger.class).annotatedWith(Names.named("logger")).toInstance(plugin.getLogger());
-        bind(FloodgateLogger.class).to(JavaUtilFloodgateLogger.class);
-        bind(SkinApplier.class).to(SpigotSkinApplier.class);
     }
 
     @Provides
     @Singleton
     public JavaPlugin javaPlugin() {
         return plugin;
+    }
+
+    @Provides
+    @Singleton
+    public FloodgateLogger floodgateLogger(LanguageManager languageManager) {
+        return new JavaUtilFloodgateLogger(plugin.getLogger(), languageManager);
     }
 
     /*
@@ -86,7 +85,7 @@ public final class SpigotPlatformModule extends AbstractModule {
             SpigotVersionSpecificMethods versionSpecificMethods,
             LanguageManager languageManager) {
         return new SpigotCommandUtil(
-                languageManager, plugin.getServer(), api, versionSpecificMethods);
+                languageManager, plugin.getServer(), api, versionSpecificMethods, plugin);
     }
 
     @Provides
@@ -98,6 +97,12 @@ public final class SpigotPlatformModule extends AbstractModule {
     /*
     DebugAddon / PlatformInjector
      */
+
+    @Provides
+    @Singleton
+    public CommonPlatformInjector platformInjector() {
+        return new SpigotInjector();
+    }
 
     @Provides
     @Named("packetEncoder")
@@ -137,6 +142,12 @@ public final class SpigotPlatformModule extends AbstractModule {
     @Singleton
     public PluginMessageRegistration pluginMessageRegister() {
         return new SpigotPluginMessageRegistration(plugin);
+    }
+
+    @Provides
+    @Singleton
+    public SkinApplier skinApplier(SpigotVersionSpecificMethods versionSpecificMethods) {
+        return new SpigotSkinApplier(versionSpecificMethods, plugin);
     }
 
     @Provides

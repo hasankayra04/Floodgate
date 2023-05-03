@@ -29,7 +29,6 @@ import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
-import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import java.nio.file.Path;
 import org.geysermc.floodgate.api.logger.FloodgateLogger;
@@ -69,10 +68,5 @@ public final class VelocityPlugin {
                 new VelocityAddonModule(),
                 new PluginMessageModule()
         );
-    }
-
-    @Subscribe
-    public void onProxyShutdown(ProxyShutdownEvent event) {
-        platform.disable();
     }
 }

@@ -36,12 +36,14 @@ public interface PluginMessageChannel {
 
     Result handleProxyCall(
             byte[] data,
+            UUID targetUuid,
+            String targetUsername,
+            Identity targetIdentity,
             UUID sourceUuid,
             String sourceUsername,
-            Identity sourceIdentity
-    );
+            Identity sourceIdentity);
 
-    Result handleServerCall(byte[] data, UUID playerUuid, String playerUsername);
+    Result handleServerCall(byte[] data, UUID targetUuid, String targetUsername);
 
     @Getter
     @RequiredArgsConstructor(access = AccessLevel.PRIVATE)

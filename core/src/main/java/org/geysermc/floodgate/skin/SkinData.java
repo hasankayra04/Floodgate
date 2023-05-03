@@ -23,9 +23,25 @@
  * @link https://github.com/GeyserMC/Floodgate
  */
 
-package org.geysermc.floodgate.api.event;
+package org.geysermc.floodgate.skin;
 
-import org.geysermc.event.subscribe.Subscriber;
+import com.google.gson.JsonObject;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
-public interface FloodgateSubscriber<T> extends Subscriber<T> {
+@Getter
+@RequiredArgsConstructor
+public class SkinData {
+    private final String value;
+    private final String signature;
+
+    public static SkinData from(JsonObject data) {
+        if (data.has("signature") && !data.get("signature").isJsonNull()) {
+            return new SkinData(
+                    data.get("value").getAsString(),
+                    data.get("signature").getAsString()
+            );
+        }
+        return new SkinData(data.get("value").getAsString(), null);
+    }
 }

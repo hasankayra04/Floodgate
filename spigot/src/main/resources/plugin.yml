@@ -5,4 +5,3 @@ author: ${author}
 website: ${url}
 main: org.geysermc.floodgate.SpigotPlugin
 api-version: 1.13
-folia-supported: true

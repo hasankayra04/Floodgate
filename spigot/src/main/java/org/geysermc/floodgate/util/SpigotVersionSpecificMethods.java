@@ -25,21 +25,16 @@
 
 package org.geysermc.floodgate.util;
 
-import java.lang.reflect.Method;
-import java.util.concurrent.TimeUnit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.geysermc.floodgate.SpigotPlugin;
 
 public final class SpigotVersionSpecificMethods {
-    private static final Method GET_SPIGOT;
-    private static final Method OLD_GET_LOCALE;
+    private static final boolean NEW_GET_LOCALE;
     private static final boolean NEW_VISIBILITY;
 
     static {
-        GET_SPIGOT = ReflectionUtils.getMethod(Player.class, "spigot");
-        OLD_GET_LOCALE = ReflectionUtils.getMethod(Player.Spigot.class, "getLocale");
-
+        NEW_GET_LOCALE = ReflectionUtils.getMethod(Player.class, "getLocale") != null;
         NEW_VISIBILITY = null != ReflectionUtils.getMethod(
                 Player.class, "hidePlayer",
                 Plugin.class, Player.class
@@ -53,51 +48,27 @@ public final class SpigotVersionSpecificMethods {
     }
 
     public String getLocale(Player player) {
-        if (OLD_GET_LOCALE == null) {
+        if (NEW_GET_LOCALE) {
             return player.getLocale();
         }
-        Object spigot = ReflectionUtils.invoke(player, GET_SPIGOT);
-        return ReflectionUtils.castedInvoke(spigot, OLD_GET_LOCALE);
-    }
-
-    public void hideAndShowPlayer(Player on, Player target) {
-        // In Folia we don't have to schedule this as there is no concept of a single main thread.
-        // Instead, we have to schedule the task per player.
-        if (ClassNames.IS_FOLIA) {
-            on.getScheduler().execute(plugin, () -> hideAndShowPlayer0(on, target), null, 0);
-            return;
-        }
-        hideAndShowPlayer0(on, target);
-    }
-
-    public void schedule(Runnable runnable, long delay) {
-        if (ClassNames.IS_FOLIA) {
-            plugin.getServer().getAsyncScheduler().runDelayed(
-                    plugin, $ -> runnable.run(), delay * 50, TimeUnit.MILLISECONDS
-            );
-            return;
-        }
-        plugin.getServer().getScheduler().runTaskLater(plugin, runnable, delay);
+        return player.spigot().getLocale();
     }
 
     @SuppressWarnings("deprecation")
-    private void hideAndShowPlayer0(Player source, Player target) {
+    public void hidePlayer(Player hideFor, Player playerToHide) {
         if (NEW_VISIBILITY) {
-            source.hidePlayer(plugin, target);
-            source.showPlayer(plugin, target);
+            hideFor.hidePlayer(plugin, playerToHide);
             return;
         }
-        source.hidePlayer(target);
-        source.showPlayer(target);
+        hideFor.hidePlayer(playerToHide);
     }
 
-    public void maybeSchedule(Runnable runnable) {
-        // In Folia we don't have to schedule this as there is no concept of a single main thread.
-        // Instead, we have to schedule the task per player.
-        if (ClassNames.IS_FOLIA) {
-            runnable.run();
+    @SuppressWarnings("deprecation")
+    public void showPlayer(Player showFor, Player playerToShow) {
+        if (NEW_VISIBILITY) {
+            showFor.showPlayer(plugin, playerToShow);
             return;
         }
-        plugin.getServer().getScheduler().runTask(plugin, runnable);
+        showFor.showPlayer(playerToShow);
     }
 }

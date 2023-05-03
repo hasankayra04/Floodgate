@@ -28,7 +28,6 @@ package org.geysermc.floodgate.pluginmessage.channel;
 import com.google.common.base.Charsets;
 import com.google.inject.Inject;
 import it.unimi.dsi.fastutil.shorts.Short2ObjectMap;
-import it.unimi.dsi.fastutil.shorts.Short2ObjectMaps;
 import it.unimi.dsi.fastutil.shorts.Short2ObjectOpenHashMap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -42,8 +41,7 @@ import org.geysermc.floodgate.pluginmessage.PluginMessageChannel;
 
 public class FormChannel implements PluginMessageChannel {
     private final FormDefinitions formDefinitions = FormDefinitions.instance();
-    private final Short2ObjectMap<Form> storedForms =
-            Short2ObjectMaps.synchronize(new Short2ObjectOpenHashMap<>());
+    private final Short2ObjectMap<Form> storedForms = new Short2ObjectOpenHashMap<>();
     private final AtomicInteger nextFormId = new AtomicInteger(0);
 
     @Inject private PluginMessageUtils pluginMessageUtils;
@@ -58,10 +56,13 @@ public class FormChannel implements PluginMessageChannel {
     @Override
     public Result handleProxyCall(
             byte[] data,
+            UUID targetUuid,
+            String targetUsername,
+            Identity targetIdentity,
             UUID sourceUuid,
             String sourceUsername,
-            Identity sourceIdentity
-    ) {
+            Identity sourceIdentity) {
+
         if (sourceIdentity == Identity.SERVER) {
             // send it to the client
             return Result.forward();
@@ -88,7 +89,7 @@ public class FormChannel implements PluginMessageChannel {
     }
 
     @Override
-    public Result handleServerCall(byte[] data, UUID playerUuid, String playerUsername) {
+    public Result handleServerCall(byte[] data, UUID targetUuid, String targetUsername) {
         callResponseConsumer(data);
         return Result.handled();
     }

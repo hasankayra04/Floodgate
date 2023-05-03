@@ -34,7 +34,6 @@ package org.geysermc.floodgate.api.handshake;
  * HandshakeData#isFloodgatePlayer()} will be false and Floodgate related methods will return null
  * for Java players
  */
-@Deprecated
 @FunctionalInterface
 public interface HandshakeHandler {
     /**

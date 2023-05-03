@@ -33,6 +33,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.messages.ChannelIdentifier;
+import com.velocitypowered.api.proxy.messages.ChannelMessageSink;
 import com.velocitypowered.api.proxy.messages.ChannelMessageSource;
 import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import java.util.UUID;
@@ -63,6 +64,21 @@ public class VelocityPluginMessageUtils extends PluginMessageUtils {
             return;
         }
 
+        UUID targetUuid = null;
+        String targetUsername = null;
+        Identity targetIdentity = Identity.UNKNOWN;
+
+        ChannelMessageSink target = event.getTarget();
+        if (target instanceof Player) {
+            Player player = (Player) target;
+            targetUuid = player.getUniqueId();
+            targetUsername = player.getUsername();
+            targetIdentity = Identity.PLAYER;
+
+        } else if (target instanceof ServerConnection) {
+            targetIdentity = Identity.SERVER;
+        }
+
         UUID sourceUuid = null;
         String sourceUsername = null;
         Identity sourceIdentity = Identity.UNKNOWN;
@@ -78,9 +94,8 @@ public class VelocityPluginMessageUtils extends PluginMessageUtils {
             sourceIdentity = Identity.SERVER;
         }
 
-        Result result = channel.handleProxyCall(
-                event.getData(), sourceUuid, sourceUsername, sourceIdentity
-        );
+        Result result = channel.handleProxyCall(event.getData(), targetUuid, targetUsername,
+                targetIdentity, sourceUuid, sourceUsername, sourceIdentity);
 
         event.setResult(result.isAllowed() ? ForwardResult.forward() : ForwardResult.handled());
 

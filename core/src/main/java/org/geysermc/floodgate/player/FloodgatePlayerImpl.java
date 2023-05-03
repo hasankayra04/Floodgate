@@ -32,6 +32,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.geysermc.floodgate.api.FloodgateApi;
+import org.geysermc.floodgate.api.InstanceHolder;
 import org.geysermc.floodgate.api.ProxyFloodgateApi;
 import org.geysermc.floodgate.api.handshake.HandshakeData;
 import org.geysermc.floodgate.api.player.FloodgatePlayer;
@@ -71,7 +72,7 @@ public final class FloodgatePlayerImpl implements FloodgatePlayer {
     private Map<String, PropertyKey> stringToPropertyKey;
 
     static FloodgatePlayerImpl from(BedrockData data, HandshakeData handshakeData) {
-        FloodgateApi api = FloodgateApi.getInstance();
+        FloodgateApi api = InstanceHolder.getApi();
 
         UUID javaUniqueId = Utils.getJavaUuid(data.getXuid());
 

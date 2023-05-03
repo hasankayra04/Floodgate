@@ -27,15 +27,13 @@ package org.geysermc.floodgate.util;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.google.inject.Inject;
-import com.google.inject.Singleton;
-import com.google.inject.name.Named;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -44,36 +42,29 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 // resources are properly closed and ignoring the original stack trace is intended
 @SuppressWarnings({"PMD.CloseResource", "PMD.PreserveStackTrace"})
-@Singleton
-public class HttpClient {
+public class HttpUtils {
+    private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
+
+    private static final Gson GSON = new Gson();
     private static final String USER_AGENT = "GeyserMC/Floodgate";
 
-    private final Gson gson = new Gson();
-    @Inject
-    @Named("commonPool")
-    private ExecutorService executorService;
-
-    public CompletableFuture<DefaultHttpResponse> asyncGet(String urlString) {
-        return CompletableFuture.supplyAsync(() -> get(urlString), executorService);
+    public static CompletableFuture<DefaultHttpResponse> asyncGet(String urlString) {
+        return CompletableFuture.supplyAsync(() -> get(urlString), EXECUTOR_SERVICE);
     }
 
-    public <T> CompletableFuture<HttpResponse<T>> asyncGet(String urlString, Class<T> response) {
-        return CompletableFuture.supplyAsync(() -> get(urlString, response), executorService);
-    }
-
-    public DefaultHttpResponse get(String urlString) {
+    public static DefaultHttpResponse get(String urlString) {
         return readDefaultResponse(request(urlString));
     }
 
-    public <T> HttpResponse<T> get(String urlString, Class<T> clazz) {
+    public static <T> HttpResponse<T> get(String urlString, Class<T> clazz) {
         return readResponse(request(urlString), clazz);
     }
 
-    public <T> HttpResponse<T> getSilent(String urlString, Class<T> clazz) {
+    public static <T> HttpResponse<T> getSilent(String urlString, Class<T> clazz) {
         return readResponseSilent(request(urlString), clazz);
     }
 
-    private HttpURLConnection request(String urlString) {
+    private static HttpURLConnection request(String urlString) {
         HttpURLConnection connection;
 
         try {
@@ -97,20 +88,18 @@ public class HttpClient {
     }
 
     @NonNull
-    private <T> HttpResponse<T> readResponse(HttpURLConnection connection, Class<T> clazz) {
+    private static <T> HttpResponse<T> readResponse(HttpURLConnection connection, Class<T> clazz) {
         InputStreamReader streamReader = createReader(connection);
         if (streamReader == null) {
             return new HttpResponse<>(-1, null);
         }
 
-        int responseCode = -1;
         try {
-            responseCode = connection.getResponseCode();
-            T response = gson.fromJson(streamReader, clazz);
+            int responseCode = connection.getResponseCode();
+            T response = GSON.fromJson(streamReader, clazz);
             return new HttpResponse<>(responseCode, response);
         } catch (Exception ignored) {
-            // e.g. when the response isn't JSON
-            return new HttpResponse<>(responseCode, null);
+            return new HttpResponse<>(-1, null);
         } finally {
             try {
                 streamReader.close();
@@ -120,7 +109,9 @@ public class HttpClient {
     }
 
     @NonNull
-    private <T> HttpResponse<T> readResponseSilent(HttpURLConnection connection, Class<T> clazz) {
+    private static <T> HttpResponse<T> readResponseSilent(
+            HttpURLConnection connection,
+            Class<T> clazz) {
         try {
             return readResponse(connection, clazz);
         } catch (Exception ignored) {
@@ -129,7 +120,7 @@ public class HttpClient {
     }
 
     @NonNull
-    private DefaultHttpResponse readDefaultResponse(HttpURLConnection connection) {
+    private static DefaultHttpResponse readDefaultResponse(HttpURLConnection connection) {
         InputStreamReader streamReader = createReader(connection);
         if (streamReader == null) {
             return new DefaultHttpResponse(-1, null);
@@ -137,7 +128,7 @@ public class HttpClient {
 
         try {
             int responseCode = connection.getResponseCode();
-            JsonObject response = gson.fromJson(streamReader, JsonObject.class);
+            JsonObject response = GSON.fromJson(streamReader, JsonObject.class);
             return new DefaultHttpResponse(responseCode, response);
         } catch (Exception exception) {
             throw new RuntimeException("Failed to read response", exception);
@@ -150,12 +141,16 @@ public class HttpClient {
     }
 
     @Nullable
-    private InputStreamReader createReader(HttpURLConnection connection) {
+    private static InputStreamReader createReader(HttpURLConnection connection) {
         InputStream stream;
         try {
             stream = connection.getInputStream();
         } catch (Exception exception) {
-            stream = connection.getErrorStream();
+            try {
+                stream = connection.getErrorStream();
+            } catch (Exception exception1) {
+                throw new RuntimeException("Both the input and the error stream failed?!");
+            }
         }
 
         // it's null for example when it couldn't connect to the server

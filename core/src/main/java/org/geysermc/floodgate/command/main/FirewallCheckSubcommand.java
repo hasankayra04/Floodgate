@@ -29,40 +29,20 @@ import static org.geysermc.floodgate.util.Constants.COLOR_CHAR;
 
 import cloud.commandframework.context.CommandContext;
 import com.google.gson.JsonElement;
-import com.google.inject.Inject;
 import it.unimi.dsi.fastutil.Pair;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
-import org.geysermc.floodgate.command.util.Permission;
-import org.geysermc.floodgate.platform.command.FloodgateSubCommand;
 import org.geysermc.floodgate.player.UserAudience;
 import org.geysermc.floodgate.util.Constants;
-import org.geysermc.floodgate.util.HttpClient;
-import org.geysermc.floodgate.util.HttpClient.HttpResponse;
+import org.geysermc.floodgate.util.HttpUtils;
+import org.geysermc.floodgate.util.HttpUtils.HttpResponse;
 import org.geysermc.floodgate.util.Utils;
 
-final class FirewallCheckSubcommand extends FloodgateSubCommand {
-    @Inject
-    private HttpClient httpClient;
+final class FirewallCheckSubcommand {
+    private FirewallCheckSubcommand() {}
 
-    @Override
-    public String name() {
-        return "firewall";
-    }
-
-    @Override
-    public String description() {
-        return "Check if your outgoing firewall allows Floodgate to work properly";
-    }
-
-    @Override
-    public Permission permission() {
-        return Permission.COMMAND_MAIN_FIREWALL;
-    }
-
-    @Override
-    public void execute(CommandContext<UserAudience> context) {
+    static void executeFirewall(CommandContext<UserAudience> context) {
         UserAudience sender = context.getSender();
         executeChecks(
                 globalApiCheck(sender)
@@ -74,12 +54,12 @@ final class FirewallCheckSubcommand extends FloodgateSubCommand {
         );
     }
 
-    private BooleanSupplier globalApiCheck(UserAudience sender) {
+    private static BooleanSupplier globalApiCheck(UserAudience sender) {
         return executeFirewallText(
                 sender, "global api",
                 () -> {
                     HttpResponse<JsonElement> response =
-                            httpClient.get(Constants.HEALTH_URL, JsonElement.class);
+                            HttpUtils.get(Constants.HEALTH_URL, JsonElement.class);
 
                     if (!response.isCodeOk()) {
                         throw new IllegalStateException(String.format(
@@ -90,7 +70,7 @@ final class FirewallCheckSubcommand extends FloodgateSubCommand {
                 });
     }
 
-    private BooleanSupplier executeFirewallText(
+    private static BooleanSupplier executeFirewallText(
             UserAudience sender, String name, Runnable runnable) {
         return () -> {
             sender.sendMessage(COLOR_CHAR + "eTesting " + name + "...");
@@ -106,7 +86,9 @@ final class FirewallCheckSubcommand extends FloodgateSubCommand {
         };
     }
 
-    private CompletableFuture<Pair<Integer, Integer>> executeChecks(BooleanSupplier... checks) {
+    private static CompletableFuture<Pair<Integer, Integer>> executeChecks(
+            BooleanSupplier... checks) {
+
         return CompletableFuture.supplyAsync(() -> {
             AtomicInteger okCount = new AtomicInteger();
             AtomicInteger failCount = new AtomicInteger();

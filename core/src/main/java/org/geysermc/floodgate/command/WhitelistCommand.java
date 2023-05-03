@@ -49,11 +49,10 @@ import org.geysermc.floodgate.player.UserAudience;
 import org.geysermc.floodgate.player.audience.ProfileAudience;
 import org.geysermc.floodgate.player.audience.ProfileAudienceArgument;
 import org.geysermc.floodgate.util.Constants;
-import org.geysermc.floodgate.util.HttpClient;
+import org.geysermc.floodgate.util.HttpUtils;
 
 public class WhitelistCommand implements FloodgateCommand {
     @Inject private FloodgateConfig config;
-    @Inject private HttpClient httpClient;
     @Inject private FloodgateLogger logger;
 
     @Override
@@ -129,7 +128,7 @@ public class WhitelistCommand implements FloodgateCommand {
         final String strippedName = name;
 
         // We need to get the UUID of the player if it's not manually specified
-        httpClient.asyncGet(Constants.GET_XUID_URL + name)
+        HttpUtils.asyncGet(Constants.GET_XUID_URL + name)
                 .whenComplete((result, error) -> {
                     if (error != null) {
                         sender.sendMessage(Message.API_UNAVAILABLE);

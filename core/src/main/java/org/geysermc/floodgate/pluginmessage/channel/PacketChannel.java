@@ -40,26 +40,23 @@ public final class PacketChannel implements PluginMessageChannel {
     }
 
     @Override
-    public Result handleProxyCall(
-            byte[] data,
-            UUID sourceUuid,
-            String sourceUsername,
-            Identity sourceIdentity
-    ) {
+    public Result handleProxyCall(byte[] data, UUID targetUuid, String targetUsername,
+                                  Identity targetIdentity, UUID sourceUuid, String sourceUsername,
+                                  Identity sourceIdentity) {
         if (sourceIdentity == Identity.SERVER) {
             // send it to the client
             return Result.forward();
         }
 
         if (sourceIdentity == Identity.PLAYER) {
-            return handleServerCall(data, sourceUuid, sourceUsername);
+            return handleServerCall(data, targetUuid, targetUsername);
         }
 
         return Result.handled();
     }
 
     @Override
-    public Result handleServerCall(byte[] data, UUID playerUuid, String playerUsername) {
+    public Result handleServerCall(byte[] data, UUID targetUuid, String targetUsername) {
         return Result.kick("Cannot send packets from Geyser/Floodgate to Floodgate");
     }
 
